@@ -1,0 +1,1291 @@
+<!doctype html>
+<html lang="ko">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>로컬 마인드맵</title>
+        <style>
+            :root {
+                --bg: #f6f6f4;
+                --dot: #dedcd6;
+                --panel: #ffffff;
+                --border: #dcdcd8;
+                --text: #1d1d1b;
+                --muted: #6b6b66;
+                --accent: #2f6fde;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root {
+                    --bg: #1b1c1e;
+                    --dot: #2c2d31;
+                    --panel: #242528;
+                    --border: #3a3b3f;
+                    --text: #e8e8e6;
+                    --muted: #9a9a96;
+                    --accent: #6b9cf0;
+                }
+            }
+            * {
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                margin: 0;
+                height: 100%;
+                overflow: hidden;
+                background: var(--bg);
+                color: var(--text);
+                font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+                font-size: 14px;
+            }
+            #bar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 48px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                padding: 0 10px;
+                background: var(--panel);
+                border-bottom: 1px solid var(--border);
+                overflow-x: auto;
+                z-index: 10;
+            }
+            #bar button,
+            #bar select {
+                flex: none;
+                height: 30px;
+                padding: 0 9px;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                background: var(--panel);
+                color: var(--text);
+                font: inherit;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            #bar select {
+                max-width: 200px;
+            }
+            #bar button:hover:not(:disabled) {
+                border-color: var(--accent);
+            }
+            #bar button:disabled {
+                opacity: 0.4;
+                cursor: default;
+            }
+            #colorPop {
+                position: fixed;
+                top: 52px;
+                display: none;
+                align-items: center;
+                gap: 6px;
+                padding: 8px;
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+                z-index: 15;
+            }
+            #colorPop button {
+                height: 26px;
+                padding: 0 8px;
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                background: var(--panel);
+                color: var(--text);
+                font: inherit;
+                font-size: 12px;
+                cursor: pointer;
+            }
+            #swatches {
+                display: flex;
+                gap: 4px;
+            }
+            #colorPop .swatch {
+                width: 22px;
+                height: 22px;
+                padding: 0;
+                border-radius: 50%;
+                border: 2px solid var(--panel);
+                box-shadow: 0 0 0 1px var(--border);
+            }
+            .sep {
+                flex: none;
+                width: 1px;
+                height: 22px;
+                margin: 0 4px;
+                background: var(--border);
+            }
+            .brand {
+                flex: none;
+                font-weight: 600;
+                margin-right: 4px;
+            }
+            #status {
+                position: fixed;
+                left: 12px;
+                bottom: 10px;
+                color: var(--muted);
+                font-size: 12px;
+                white-space: nowrap;
+                pointer-events: none;
+                z-index: 4;
+            }
+            #stage {
+                position: fixed;
+                top: 48px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: var(--bg);
+                background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+                background-size: 22px 22px;
+            }
+            #svg {
+                display: block;
+                width: 100%;
+                height: 100%;
+                cursor: grab;
+                user-select: none;
+                -webkit-user-select: none;
+                touch-action: none;
+            }
+            #svg.panning {
+                cursor: grabbing;
+            }
+            g.node {
+                cursor: pointer;
+            }
+            g.node .ring {
+                display: none;
+            }
+            g.node.sel .ring {
+                display: inline;
+            }
+            g.node .tg-open {
+                opacity: 0;
+                transition: opacity 0.12s;
+            }
+            g.node:hover .tg-open,
+            g.node.sel .tg-open {
+                opacity: 1;
+            }
+            g.node.ghost {
+                opacity: 0.6;
+                pointer-events: none;
+            }
+            g.node.drop .ring {
+                display: inline;
+                stroke-dasharray: 5 3;
+            }
+            #editor {
+                position: absolute;
+                display: none;
+                margin: 0;
+                border: 2px solid var(--accent);
+                outline: none;
+                resize: none;
+                overflow: hidden;
+                white-space: pre;
+                text-align: center;
+                background: var(--panel);
+                color: var(--text);
+                font-family: inherit;
+                z-index: 5;
+            }
+            #help {
+                position: fixed;
+                right: 16px;
+                bottom: 16px;
+                width: min(340px, calc(100vw - 32px));
+                max-height: calc(100vh - 80px);
+                overflow-y: auto;
+                display: none;
+                padding: 14px 16px;
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+                font-size: 13px;
+                z-index: 20;
+            }
+            #help h2 {
+                margin: 0 0 8px;
+                font-size: 14px;
+            }
+            #help table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            #help td {
+                padding: 3px 0;
+                vertical-align: top;
+            }
+            #help td:first-child {
+                width: 42%;
+                color: var(--muted);
+            }
+            #help kbd {
+                display: inline-block;
+                padding: 0 5px;
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                font-family: inherit;
+                font-size: 12px;
+                color: var(--text);
+            }
+            #help p {
+                margin: 10px 0 0;
+                color: var(--muted);
+            }
+            #help .close {
+                float: right;
+                border: none;
+                background: none;
+                color: var(--muted);
+                font-size: 18px;
+                line-height: 1;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="bar">
+            <span class="brand">마인드맵</span>
+            <select id="mapSel" title="저장된 맵"></select>
+            <button id="btnNew" title="새 맵">새 맵</button>
+            <button id="btnDel" title="현재 맵을 브라우저 저장소에서 삭제">삭제</button>
+            <span class="sep"></span>
+            <button id="btnOpen" title="JSON / Markdown / 텍스트 파일 열기 (Ctrl+O)">열기</button>
+            <button id="btnJson" title="JSON으로 저장 (Ctrl+S)">JSON</button>
+            <button id="btnMd" title="Markdown 개요로 내보내기">MD</button>
+            <button id="btnPng" title="PNG 이미지로 내보내기">PNG</button>
+            <button id="btnSvg" title="SVG 이미지로 내보내기">SVG</button>
+            <span class="sep"></span>
+            <button id="btnUndo" title="실행 취소 (Ctrl+Z)">실행취소</button>
+            <button id="btnRedo" title="다시 실행 (Ctrl+Shift+Z)">다시실행</button>
+            <span class="sep"></span>
+            <button id="btnChild" title="하위 노드 추가 (Tab)">+ 하위</button>
+            <button id="btnSib" title="형제 노드 추가 (Enter)">+ 형제</button>
+            <button id="btnRemove" title="노드 삭제 (Delete)">노드 삭제</button>
+            <span class="sep"></span>
+            <button id="btnColor" title="선택한 노드의 색상">색상</button>
+            <span class="sep"></span>
+            <button id="btnZoomOut" title="축소">-</button>
+            <button id="btnZoomIn" title="확대">+</button>
+            <button id="btnFit" title="화면에 맞추기">맞춤</button>
+            <button id="btnHelp" title="단축키 (?)">도움말</button>
+        </div>
+        <span id="status"></span>
+        <div id="colorPop">
+            <span id="swatches"></span>
+            <button id="btnAutoColor" title="색상 초기화">자동</button>
+        </div>
+
+        <div id="stage">
+            <svg id="svg" xmlns="http://www.w3.org/2000/svg"><g id="vp"></g></svg>
+            <textarea id="editor" wrap="off" spellcheck="false"></textarea>
+        </div>
+
+        <div id="help">
+            <button class="close" id="helpClose" title="닫기">&times;</button>
+            <h2>사용법</h2>
+            <table>
+                <tr>
+                    <td><kbd>Tab</kbd></td>
+                    <td>하위 노드 추가</td>
+                </tr>
+                <tr>
+                    <td><kbd>Enter</kbd></td>
+                    <td>형제 노드 추가</td>
+                </tr>
+                <tr>
+                    <td><kbd>Space</kbd> <kbd>F2</kbd> 더블클릭</td>
+                    <td>텍스트 편집 (그냥 타이핑해도 편집 시작)</td>
+                </tr>
+                <tr>
+                    <td><kbd>Shift</kbd>+<kbd>Enter</kbd></td>
+                    <td>편집 중 줄바꿈</td>
+                </tr>
+                <tr>
+                    <td><kbd>Esc</kbd></td>
+                    <td>편집 취소</td>
+                </tr>
+                <tr>
+                    <td><kbd>Delete</kbd></td>
+                    <td>노드 삭제 (하위 포함)</td>
+                </tr>
+                <tr>
+                    <td>방향키</td>
+                    <td>노드 이동</td>
+                </tr>
+                <tr>
+                    <td><kbd>Alt</kbd>+<kbd>&uarr;</kbd>/<kbd>&darr;</kbd></td>
+                    <td>순서 바꾸기</td>
+                </tr>
+                <tr>
+                    <td><kbd>/</kbd></td>
+                    <td>접기 / 펼치기</td>
+                </tr>
+                <tr>
+                    <td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></td>
+                    <td>실행 취소 / 다시 실행</td>
+                </tr>
+                <tr>
+                    <td>노드 드래그</td>
+                    <td>다른 노드 위에 놓으면 그 아래로 이동</td>
+                </tr>
+                <tr>
+                    <td>배경 드래그 / 휠</td>
+                    <td>화면 이동 / 확대·축소</td>
+                </tr>
+            </table>
+            <p>모든 변경은 이 브라우저(localStorage)에 자동 저장됩니다. 다른 기기로 옮기거나 백업하려면 JSON으로 저장하세요.</p>
+        </div>
+
+        <input type="file" id="fileInput" accept=".json,.md,.markdown,.txt" style="display: none" />
+
+        <script>
+            "use strict";
+
+            // ---------- 설정 ----------
+            const STORE_KEY = "local-mindmap.v1";
+            const PALETTE = ["#d0533f", "#d97a1e", "#a07c10", "#3f9a4a", "#2a8ba3", "#3f66cc", "#7d4fc0", "#b84584"];
+            const FONT = "system-ui, -apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif";
+            const HGAP = 46;
+            const VGAP = 12;
+            const MIN_K = 0.15;
+            const MAX_K = 3;
+
+            const $ = (s) => document.querySelector(s);
+            const svg = $("#svg");
+            const vp = $("#vp");
+            const editor = $("#editor");
+            const stage = $("#stage");
+            const mq = matchMedia("(prefers-color-scheme: dark)");
+            const measureCtx = document.createElement("canvas").getContext("2d");
+
+            // ---------- 상태 ----------
+            let store = loadStore();
+            let map = null; // 루트 노드 (map.id = 맵 id)
+            let selectedId = null;
+            let undoStack = [];
+            let redoStack = [];
+            let editing = null; // { id, isNew, orig }
+            const view = { x: 0, y: 0, k: 1 };
+            const info = new Map(); // 보이는 노드의 레이아웃 정보
+
+            function theme() {
+                return mq.matches
+                    ? { bg: "#1b1c1e", text: "#e8e8e6", nodeFill: "#26272a", rootFill: "#e8e8e6", rootText: "#1b1c1e", accent: "#6b9cf0" }
+                    : { bg: "#f6f6f4", text: "#1d1d1b", nodeFill: "#ffffff", rootFill: "#2a2b2e", rootText: "#ffffff", accent: "#2f6fde" };
+            }
+
+            // ---------- 유틸 ----------
+            function uid() {
+                return Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+            }
+            function esc(s) {
+                return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+            }
+            function clamp(v, a, b) {
+                return Math.max(a, Math.min(b, v));
+            }
+            function newRoot() {
+                return { id: uid(), text: "중심 주제", children: [] };
+            }
+            function find(id, node = map, parent = null) {
+                if (node.id === id) return { node, parent, index: parent ? parent.children.indexOf(node) : -1 };
+                for (const c of node.children) {
+                    const r = find(id, c, node);
+                    if (r) return r;
+                }
+                return null;
+            }
+            function contains(node, id) {
+                if (node.id === id) return true;
+                return node.children.some((c) => contains(c, id));
+            }
+            function countNodes(n) {
+                return 1 + n.children.reduce((s, c) => s + countNodes(c), 0);
+            }
+            function setStatus(msg) {
+                $("#status").textContent = msg;
+            }
+
+            // ---------- 저장 ----------
+            function loadStore() {
+                try {
+                    const s = JSON.parse(localStorage.getItem(STORE_KEY));
+                    if (s && s.maps && typeof s.maps === "object") return s;
+                } catch (e) {}
+                return { current: null, maps: {}, seenHelp: false };
+            }
+            function writeStore() {
+                try {
+                    localStorage.setItem(STORE_KEY, JSON.stringify(store));
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+            function persist() {
+                store.maps[map.id] = { data: map, updated: Date.now() };
+                store.current = map.id;
+                const ok = writeStore();
+                const d = new Date();
+                const t = [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, "0")).join(":");
+                setStatus(ok ? `노드 ${countNodes(map)}개 · 자동 저장 ${t}` : "브라우저 저장 실패 - JSON으로 저장하세요");
+                refreshMapList();
+            }
+            function refreshMapList() {
+                const sel = $("#mapSel");
+                const items = Object.entries(store.maps).sort((a, b) => b[1].updated - a[1].updated);
+                sel.innerHTML = items
+                    .map(([id, m]) => {
+                        const label = (m.data.text || "(제목 없음)").split("\n")[0].slice(0, 30) || "(제목 없음)";
+                        return `<option value="${esc(id)}"${id === map.id ? " selected" : ""}>${esc(label)}</option>`;
+                    })
+                    .join("");
+            }
+            function openMap(root) {
+                if (editing) commitEdit();
+                map = root;
+                selectedId = map.id;
+                undoStack = [];
+                redoStack = [];
+                render();
+                fit();
+                persist();
+            }
+
+            // ---------- 측정 & 레이아웃 ----------
+            function style(depth) {
+                if (depth === 0) return { size: 18, weight: 600, padX: 22, padY: 13, rx: 12 };
+                if (depth === 1) return { size: 15, weight: 600, padX: 15, padY: 8, rx: 8 };
+                return { size: 14, weight: 400, padX: 12, padY: 6, rx: 7 };
+            }
+            function measure(text, depth) {
+                const st = style(depth);
+                measureCtx.font = `${st.weight} ${st.size}px ${FONT}`;
+                const lines = String(text).split("\n");
+                const tw = Math.max(...lines.map((l) => measureCtx.measureText(l || " ").width));
+                const lh = Math.round(st.size * 1.35);
+                return Object.assign({}, st, { lines, lh, w: Math.max(Math.ceil(tw) + st.padX * 2, 40), h: lines.length * lh + st.padY * 2 });
+            }
+
+            function build(n, parent, depth, inherited, idx) {
+                const color = n.color || inherited || (depth === 1 ? PALETTE[idx % PALETTE.length] : null);
+                const m = measure(n.text || " ", depth);
+                info.set(n.id, Object.assign(m, { node: n, parent, depth, color, dir: 0, x: 0, y: 0, sh: 0 }));
+                if (depth === 0 || !n.collapsed) n.children.forEach((c, i) => build(c, n, depth + 1, depth === 0 ? null : color, i));
+            }
+            function subtreeHeight(n) {
+                const i = info.get(n.id);
+                if (i.depth > 0 && (n.collapsed || !n.children.length)) return (i.sh = i.h);
+                if (!n.children.length) return (i.sh = i.h);
+                const s = n.children.reduce((acc, c) => acc + subtreeHeight(c), 0) + VGAP * (n.children.length - 1);
+                return (i.sh = Math.max(i.h, s));
+            }
+            function placeGroup(list, p, dir) {
+                if (!list.length) return;
+                const total = list.reduce((s, c) => s + info.get(c.id).sh, 0) + VGAP * (list.length - 1);
+                let y = p.y - total / 2;
+                for (const c of list) {
+                    const ci = info.get(c.id);
+                    ci.dir = dir;
+                    ci.x = p.x + dir * (p.w / 2 + HGAP + ci.w / 2);
+                    ci.y = y + ci.sh / 2;
+                    y += ci.sh + VGAP;
+                    if (!c.collapsed) placeGroup(c.children, ci, dir);
+                }
+            }
+            function layout() {
+                info.clear();
+                build(map, null, 0, null, 0);
+                const root = info.get(map.id);
+                subtreeHeight(map);
+                // 루트의 자식들을 순서를 유지하면서 좌우로 균형 있게 나눈다
+                const kids = map.children;
+                const total = kids.reduce((s, c) => s + info.get(c.id).sh, 0);
+                const right = [];
+                const left = [];
+                let acc = 0;
+                let toLeft = false;
+                for (const c of kids) {
+                    const h = info.get(c.id).sh;
+                    if (!toLeft && (right.length === 0 || acc + h / 2 <= total / 2)) {
+                        right.push(c);
+                        acc += h;
+                    } else {
+                        toLeft = true;
+                        left.push(c);
+                    }
+                }
+                placeGroup(right, root, 1);
+                placeGroup(left, root, -1);
+            }
+
+            // ---------- 렌더링 ----------
+            function drawSVG(exporting) {
+                const T = theme();
+                let edges = "";
+                let nodes = "";
+                for (const i of info.values()) {
+                    const n = i.node;
+                    if (i.parent) {
+                        const p = info.get(i.parent.id);
+                        const d = i.dir;
+                        const x1 = p.x + (d * p.w) / 2;
+                        const x2 = i.x - (d * i.w) / 2;
+                        const mx = (x1 + x2) / 2;
+                        const sw = p.depth === 0 ? 2.6 : 1.7;
+                        edges += `<path d="M${x1},${p.y} C${mx},${p.y} ${mx},${i.y} ${x2},${i.y}" fill="none" stroke="${i.color}" stroke-width="${sw}" stroke-linecap="round"/>`;
+                    }
+                    let fill, stroke, textFill;
+                    if (i.depth === 0) {
+                        fill = n.color || T.rootFill;
+                        stroke = "none";
+                        textFill = n.color ? "#ffffff" : T.rootText;
+                    } else if (i.depth === 1) {
+                        fill = i.color;
+                        stroke = "none";
+                        textFill = "#ffffff";
+                    } else {
+                        fill = T.nodeFill;
+                        stroke = i.color;
+                        textFill = T.text;
+                    }
+                    const cls = "node" + (!exporting && n.id === selectedId ? " sel" : "");
+                    let g = `<g class="${cls}" data-id="${esc(n.id)}" transform="translate(${i.x - i.w / 2},${i.y - i.h / 2})">`;
+                    if (!exporting) g += `<rect class="ring" x="-4" y="-4" width="${i.w + 8}" height="${i.h + 8}" rx="${i.rx + 4}" fill="none" stroke="${T.accent}" stroke-width="2"/>`;
+                    g += `<rect width="${i.w}" height="${i.h}" rx="${i.rx}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
+                    g += `<text font-family="${FONT}" font-size="${i.size}" font-weight="${i.weight}" fill="${textFill}" text-anchor="middle">`;
+                    i.lines.forEach((line, k) => {
+                        g += `<tspan x="${i.w / 2}" y="${i.padY + i.lh * (k + 0.5)}" dominant-baseline="central">${esc(line)}</tspan>`;
+                    });
+                    g += `</text>`;
+                    if (i.depth > 0 && n.children.length && (!exporting || n.collapsed)) {
+                        const cx = i.dir > 0 ? i.w + 10 : -10;
+                        const cy = i.h / 2;
+                        if (n.collapsed) {
+                            g += `<g data-toggle="${esc(n.id)}"><circle cx="${cx}" cy="${cy}" r="9" fill="${i.color}"/><text x="${cx}" y="${cy}" font-family="${FONT}" font-size="10" font-weight="600" fill="#ffffff" text-anchor="middle" dominant-baseline="central">${countNodes(n) - 1}</text></g>`;
+                        } else {
+                            g += `<g class="tg-open" data-toggle="${esc(n.id)}"><circle cx="${cx}" cy="${cy}" r="7" fill="${T.nodeFill}" stroke="${i.color}" stroke-width="1.5"/><path d="M${cx - 3.5},${cy} H${cx + 3.5}" stroke="${i.color}" stroke-width="1.6" stroke-linecap="round"/></g>`;
+                        }
+                    }
+                    g += `</g>`;
+                    nodes += g;
+                }
+                return edges + nodes;
+            }
+            function render() {
+                layout();
+                if (!info.has(selectedId)) selectedId = map.id;
+                vp.innerHTML = drawSVG(false);
+                applyView();
+                updateButtons();
+            }
+            function applyView() {
+                vp.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`);
+                if (editing) positionEditor();
+            }
+            function updateButtons() {
+                $("#btnUndo").disabled = !undoStack.length;
+                $("#btnRedo").disabled = !redoStack.length;
+                $("#btnRemove").disabled = selectedId === map.id;
+            }
+            function select(id) {
+                if (!info.has(id)) return;
+                selectedId = id;
+                vp.querySelectorAll("g.node.sel").forEach((g) => g.classList.remove("sel"));
+                const g = nodeEl(id);
+                if (g) g.classList.add("sel");
+                updateButtons();
+            }
+            function nodeEl(id) {
+                return vp.querySelector(`g.node[data-id="${CSS.escape(id)}"]`);
+            }
+
+            // ---------- 화면 ----------
+            function bounds() {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const i of info.values()) {
+                    minX = Math.min(minX, i.x - i.w / 2 - 20);
+                    maxX = Math.max(maxX, i.x + i.w / 2 + 20);
+                    minY = Math.min(minY, i.y - i.h / 2);
+                    maxY = Math.max(maxY, i.y + i.h / 2);
+                }
+                return { minX, minY, maxX, maxY };
+            }
+            function fit() {
+                const b = bounds();
+                const W = stage.clientWidth;
+                const H = stage.clientHeight;
+                const k = clamp(Math.min((W - 60) / (b.maxX - b.minX), (H - 60) / (b.maxY - b.minY)), MIN_K, 1.4);
+                view.k = k;
+                view.x = W / 2 - ((b.minX + b.maxX) / 2) * k;
+                view.y = H / 2 - ((b.minY + b.maxY) / 2) * k;
+                applyView();
+            }
+            function zoomAt(mx, my, f) {
+                const k = clamp(view.k * f, MIN_K, MAX_K);
+                const r = k / view.k;
+                view.x = mx - (mx - view.x) * r;
+                view.y = my - (my - view.y) * r;
+                view.k = k;
+                applyView();
+            }
+            function ensureVisible(id) {
+                const i = info.get(id);
+                if (!i) return;
+                const m = 40;
+                const W = stage.clientWidth;
+                const H = stage.clientHeight;
+                const l = view.x + (i.x - i.w / 2) * view.k;
+                const r = view.x + (i.x + i.w / 2) * view.k;
+                const t = view.y + (i.y - i.h / 2) * view.k;
+                const b = view.y + (i.y + i.h / 2) * view.k;
+                if (l < m) view.x += m - l;
+                else if (r > W - m) view.x -= r - (W - m);
+                if (t < m) view.y += m - t;
+                else if (b > H - m) view.y -= b - (H - m);
+                applyView();
+            }
+
+            // ---------- 변경 ----------
+            function snapshot() {
+                return { data: JSON.stringify(map), sel: selectedId };
+            }
+            function change(fn) {
+                undoStack.push(snapshot());
+                if (undoStack.length > 200) undoStack.shift();
+                redoStack = [];
+                fn();
+                render();
+                persist();
+            }
+            function restore(s) {
+                map = JSON.parse(s.data);
+                selectedId = s.sel;
+                render();
+                persist();
+            }
+            function undo() {
+                if (editing) commitEdit();
+                if (!undoStack.length) return;
+                redoStack.push(snapshot());
+                restore(undoStack.pop());
+            }
+            function redo() {
+                if (editing) commitEdit();
+                if (!redoStack.length) return;
+                undoStack.push(snapshot());
+                restore(redoStack.pop());
+            }
+            function pickColor(parent) {
+                const used = PALETTE.map((c) => parent.children.filter((ch) => ch.color === c).length);
+                return PALETTE[used.indexOf(Math.min(...used))];
+            }
+            function addChild() {
+                if (editing) commitEdit();
+                const r = find(selectedId);
+                if (!r) return;
+                const n = { id: uid(), text: "", children: [] };
+                change(() => {
+                    if (r.node === map) n.color = pickColor(map);
+                    r.node.collapsed = false;
+                    r.node.children.push(n);
+                    selectedId = n.id;
+                });
+                ensureVisible(n.id);
+                startEdit(n.id, "", true);
+            }
+            function addSibling() {
+                if (editing) commitEdit();
+                const r = find(selectedId);
+                if (!r) return;
+                if (!r.parent) return addChild();
+                const n = { id: uid(), text: "", children: [] };
+                change(() => {
+                    if (r.parent === map) n.color = pickColor(map);
+                    r.parent.children.splice(r.index + 1, 0, n);
+                    selectedId = n.id;
+                });
+                ensureVisible(n.id);
+                startEdit(n.id, "", true);
+            }
+            function removeSelected() {
+                const r = find(selectedId);
+                if (!r || !r.parent) return;
+                change(() => {
+                    const sibs = r.parent.children;
+                    sibs.splice(r.index, 1);
+                    selectedId = (sibs[r.index] || sibs[r.index - 1] || r.parent).id;
+                });
+            }
+            function moveSibling(delta) {
+                const r = find(selectedId);
+                if (!r || !r.parent) return;
+                const j = r.index + delta;
+                if (j < 0 || j >= r.parent.children.length) return;
+                change(() => {
+                    const s = r.parent.children;
+                    [s[r.index], s[j]] = [s[j], s[r.index]];
+                });
+                ensureVisible(selectedId);
+            }
+            function reparent(id, targetId) {
+                const r = find(id);
+                const t = find(targetId);
+                if (!r || !t || !r.parent || contains(r.node, targetId) || r.parent.id === targetId) return false;
+                change(() => {
+                    r.parent.children.splice(r.index, 1);
+                    if (r.parent === map && t.node !== map) delete r.node.color; // 새 가지 색을 따른다
+                    if (t.node === map && !r.node.color) r.node.color = pickColor(map);
+                    t.node.collapsed = false;
+                    t.node.children.push(r.node);
+                    selectedId = id;
+                });
+                return true;
+            }
+            function toggleCollapse(id) {
+                const r = find(id);
+                if (!r || !r.parent || !r.node.children.length) return;
+                r.node.collapsed = !r.node.collapsed;
+                if (r.node.collapsed && contains(r.node, selectedId)) selectedId = id;
+                render();
+                persist();
+            }
+            function setColor(c) {
+                const r = find(selectedId);
+                if (!r) return;
+                change(() => {
+                    if (c) r.node.color = c;
+                    else if (r.parent === map) r.node.color = pickColor(map);
+                    else delete r.node.color;
+                });
+            }
+
+            // ---------- 텍스트 편집 ----------
+            function startEdit(id, initial, isNew = false) {
+                const i = info.get(id);
+                if (!i) return;
+                select(id);
+                ensureVisible(id);
+                editing = { id, isNew, orig: i.node.text };
+                editor.value = initial ?? i.node.text;
+                editor.style.display = "block";
+                positionEditor();
+                editor.focus();
+                if (initial == null) editor.select();
+                else editor.setSelectionRange(editor.value.length, editor.value.length);
+            }
+            function positionEditor() {
+                if (!editing) return;
+                const i = info.get(editing.id);
+                if (!i) return;
+                const m = measure(editor.value || " ", i.depth);
+                const w = Math.max(m.w, i.depth === 0 ? 120 : 80) + 4;
+                const h = m.h + 4;
+                let left;
+                if (i.dir > 0) left = i.x - i.w / 2 - 2;
+                else if (i.dir < 0) left = i.x + i.w / 2 + 2 - w;
+                else left = i.x - w / 2;
+                const k = view.k;
+                Object.assign(editor.style, {
+                    left: view.x + left * k + "px",
+                    top: view.y + (i.y - h / 2) * k + "px",
+                    width: w * k + "px",
+                    height: h * k + "px",
+                    fontSize: i.size * k + "px",
+                    fontWeight: i.weight,
+                    lineHeight: i.lh * k + "px",
+                    padding: `${m.padY * k}px ${m.padX * k}px`,
+                    borderRadius: (i.rx + 2) * k + "px"
+                });
+            }
+            function commitEdit() {
+                if (!editing) return;
+                const ed = editing;
+                editing = null;
+                editor.blur();
+                editor.style.display = "none";
+                const text = editor.value
+                    .split("\n")
+                    .map((l) => l.trimEnd())
+                    .join("\n")
+                    .trim();
+                const r = find(ed.id);
+                if (!r) return render();
+                if (!text) {
+                    if (ed.isNew) return restore(undoStack.pop());
+                    return render();
+                }
+                if (ed.isNew) {
+                    r.node.text = text; // 생성 + 입력을 하나의 실행 취소 단계로 묶는다
+                    render();
+                    persist();
+                } else if (text !== ed.orig) {
+                    change(() => (r.node.text = text));
+                } else render();
+            }
+            function cancelEdit() {
+                if (!editing) return;
+                const ed = editing;
+                editing = null;
+                editor.blur();
+                editor.style.display = "none";
+                if (ed.isNew) restore(undoStack.pop());
+                else render();
+            }
+            editor.addEventListener("keydown", (e) => {
+                e.stopPropagation();
+                if (e.isComposing || e.keyCode === 229) return; // 한글 IME 조합 중
+                if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    commitEdit();
+                } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelEdit();
+                } else if (e.key === "Tab") {
+                    e.preventDefault();
+                    commitEdit();
+                    addChild();
+                }
+            });
+            editor.addEventListener("input", positionEditor);
+            editor.addEventListener("blur", commitEdit);
+
+            // ---------- 키보드 탐색 ----------
+            function anchorX(i) {
+                return i.depth === 0 ? i.x : i.x - (i.dir * i.w) / 2;
+            }
+            function navHorizontal(d) {
+                const s = info.get(selectedId);
+                if (!s) return;
+                const goDeeper = s.depth === 0 || s.dir === d;
+                if (!goDeeper) return select(s.parent.id), ensureVisible(selectedId);
+                if (s.node.collapsed && s.node.children.length) toggleCollapse(s.node.id);
+                let best = null;
+                for (const c of s.node.children) {
+                    const ci = info.get(c.id);
+                    if (!ci || ci.dir !== d) continue;
+                    if (!best || Math.abs(ci.y - s.y) < Math.abs(best.y - s.y)) best = ci;
+                }
+                if (best) select(best.node.id), ensureVisible(selectedId);
+            }
+            function navVertical(dy) {
+                const s = info.get(selectedId);
+                if (!s) return;
+                let best = null;
+                let bestScore = Infinity;
+                for (const i of info.values()) {
+                    if (i === s) continue;
+                    const d = (i.y - s.y) * dy;
+                    if (d <= 1) continue;
+                    const sideCost = s.depth > 0 && i.dir !== s.dir ? 2000 : 0;
+                    const score = d + Math.abs(anchorX(i) - anchorX(s)) * 2 + sideCost;
+                    if (score < bestScore) (bestScore = score), (best = i);
+                }
+                if (best) select(best.node.id), ensureVisible(selectedId);
+            }
+
+            document.addEventListener("keydown", (e) => {
+                if (editing) return;
+                if (e.target.closest && e.target.closest("select, input, textarea")) return;
+                const mod = e.ctrlKey || e.metaKey;
+                const key = e.key.toLowerCase();
+                if (mod) {
+                    if (key === "z") e.shiftKey ? redo() : undo();
+                    else if (key === "y") redo();
+                    else if (key === "s") exportJSON();
+                    else if (key === "o") $("#fileInput").click();
+                    else return;
+                    e.preventDefault();
+                    return;
+                }
+                if (!info.has(selectedId)) selectedId = map.id;
+                switch (e.key) {
+                    case "Tab":
+                        addChild();
+                        break;
+                    case "Enter":
+                        addSibling();
+                        break;
+                    case "Delete":
+                    case "Backspace":
+                        removeSelected();
+                        break;
+                    case "F2":
+                    case " ":
+                        startEdit(selectedId);
+                        break;
+                    case "ArrowLeft":
+                        navHorizontal(-1);
+                        break;
+                    case "ArrowRight":
+                        navHorizontal(1);
+                        break;
+                    case "ArrowUp":
+                        e.altKey ? moveSibling(-1) : navVertical(-1);
+                        break;
+                    case "ArrowDown":
+                        e.altKey ? moveSibling(1) : navVertical(1);
+                        break;
+                    case "/":
+                        toggleCollapse(selectedId);
+                        break;
+                    case "?":
+                        toggleHelp();
+                        break;
+                    case "Escape":
+                        toggleHelp(false);
+                        break;
+                    case "Process": // IME 입력 시작: 편집기로 포커스를 넘긴다
+                        startEdit(selectedId, "");
+                        return;
+                    default:
+                        if (e.key.length === 1 && !e.altKey) {
+                            startEdit(selectedId, e.key);
+                            break;
+                        }
+                        return;
+                }
+                e.preventDefault();
+            });
+
+            // ---------- 마우스 / 터치 ----------
+            const pointers = new Map();
+            let drag = null;
+
+            svg.addEventListener("pointerdown", (e) => {
+                pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                svg.setPointerCapture(e.pointerId);
+                if (pointers.size === 2) {
+                    if (drag && drag.type === "node" && drag.started) render();
+                    const [a, b] = [...pointers.values()];
+                    drag = { type: "pinch", dist: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+                    return;
+                }
+                if (e.button !== 0) return;
+                if (editing) commitEdit();
+                const tg = e.target.closest("[data-toggle]");
+                if (tg) {
+                    toggleCollapse(tg.dataset.toggle);
+                    drag = null;
+                    return;
+                }
+                const g = e.target.closest("g.node");
+                if (g) {
+                    select(g.dataset.id);
+                    drag = { type: "node", id: g.dataset.id, sx: e.clientX, sy: e.clientY, started: false };
+                } else {
+                    drag = { type: "pan", sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y };
+                    svg.classList.add("panning");
+                }
+            });
+
+            svg.addEventListener("pointermove", (e) => {
+                if (!pointers.has(e.pointerId)) return;
+                pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                if (!drag) return;
+                if (drag.type === "pinch") {
+                    if (pointers.size < 2) return;
+                    const [a, b] = [...pointers.values()];
+                    const dist = Math.hypot(a.x - b.x, a.y - b.y);
+                    const mx = (a.x + b.x) / 2;
+                    const my = (a.y + b.y) / 2;
+                    const rect = svg.getBoundingClientRect();
+                    view.x += mx - drag.mx;
+                    view.y += my - drag.my;
+                    zoomAt(mx - rect.left, my - rect.top, dist / drag.dist);
+                    Object.assign(drag, { dist, mx, my });
+                    return;
+                }
+                const dx = e.clientX - drag.sx;
+                const dy = e.clientY - drag.sy;
+                if (drag.type === "pan") {
+                    view.x = drag.vx + dx;
+                    view.y = drag.vy + dy;
+                    applyView();
+                    return;
+                }
+                // 노드 드래그
+                if (!drag.started) {
+                    if (Math.hypot(dx, dy) < 5) return;
+                    if (drag.id === map.id) {
+                        drag = { type: "pan", sx: drag.sx, sy: drag.sy, vx: view.x, vy: view.y };
+                        svg.classList.add("panning");
+                        return;
+                    }
+                    const i = info.get(drag.id);
+                    drag.started = true;
+                    drag.el = nodeEl(drag.id);
+                    drag.bx = i.x - i.w / 2;
+                    drag.by = i.y - i.h / 2;
+                    drag.el.classList.add("ghost");
+                    vp.appendChild(drag.el); // 맨 위에 그린다
+                }
+                drag.el.setAttribute("transform", `translate(${drag.bx + dx / view.k},${drag.by + dy / view.k})`);
+                const hit = document.elementFromPoint(e.clientX, e.clientY);
+                const tg = hit && hit.closest ? hit.closest("g.node") : null;
+                const tid = tg && tg.dataset.id;
+                const valid = tid && !contains(find(drag.id).node, tid);
+                if (drag.target !== (valid ? tid : null)) {
+                    vp.querySelectorAll("g.node.drop").forEach((x) => x.classList.remove("drop"));
+                    drag.target = valid ? tid : null;
+                    if (drag.target) tg.classList.add("drop");
+                }
+            });
+
+            function endPointer(e) {
+                pointers.delete(e.pointerId);
+                svg.classList.remove("panning");
+                if (!drag) return;
+                if (drag.type === "pinch") {
+                    if (pointers.size === 0) drag = null;
+                    return;
+                }
+                if (drag.type === "node" && drag.started) {
+                    const d = drag;
+                    drag = null;
+                    if (!(d.target && reparent(d.id, d.target))) render();
+                    return;
+                }
+                drag = null;
+            }
+            svg.addEventListener("pointerup", endPointer);
+            svg.addEventListener("pointercancel", endPointer);
+
+            svg.addEventListener("dblclick", (e) => {
+                const g = e.target.closest("g.node");
+                if (g && !e.target.closest("[data-toggle]")) startEdit(g.dataset.id);
+            });
+
+            svg.addEventListener(
+                "wheel",
+                (e) => {
+                    e.preventDefault();
+                    const rect = svg.getBoundingClientRect();
+                    let dy = e.deltaY * (e.deltaMode === 1 ? 16 : 1);
+                    zoomAt(e.clientX - rect.left, e.clientY - rect.top, Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0015)));
+                },
+                { passive: false }
+            );
+
+            // ---------- 가져오기 / 내보내기 ----------
+            function download(name, blob) {
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = name;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            }
+            function fileBase() {
+                return (map.text.split("\n")[0].trim() || "mindmap").replace(/[\\/:*?"<>|]/g, "_").slice(0, 60);
+            }
+            function exportJSON() {
+                const data = { format: "local-mindmap", version: 1, root: map };
+                download(fileBase() + ".json", new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+            }
+            function exportMarkdown() {
+                const one = (t) => t.replace(/\s*\n\s*/g, " ");
+                let out = `# ${one(map.text)}\n\n`;
+                const walk = (n, depth) => {
+                    for (const c of n.children) {
+                        out += `${"  ".repeat(depth)}- ${one(c.text)}\n`;
+                        walk(c, depth + 1);
+                    }
+                };
+                walk(map, 0);
+                download(fileBase() + ".md", new Blob([out], { type: "text/markdown" }));
+            }
+            function exportSVGString() {
+                const b = bounds();
+                const pad = 30;
+                const x = b.minX - pad;
+                const y = b.minY - pad;
+                const w = Math.ceil(b.maxX - b.minX + pad * 2);
+                const h = Math.ceil(b.maxY - b.minY + pad * 2);
+                const body = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${theme().bg}"/>` + drawSVG(true);
+                return { w, h, str: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${x} ${y} ${w} ${h}">${body}</svg>` };
+            }
+            function exportSVG() {
+                download(fileBase() + ".svg", new Blob([exportSVGString().str], { type: "image/svg+xml" }));
+            }
+            function exportPNG() {
+                const { w, h, str } = exportSVGString();
+                const scale = Math.min(2, 8000 / Math.max(w, h));
+                const img = new Image();
+                const url = URL.createObjectURL(new Blob([str], { type: "image/svg+xml" }));
+                img.onload = () => {
+                    const c = document.createElement("canvas");
+                    c.width = Math.round(w * scale);
+                    c.height = Math.round(h * scale);
+                    const ctx = c.getContext("2d");
+                    ctx.scale(scale, scale);
+                    ctx.drawImage(img, 0, 0, w, h);
+                    URL.revokeObjectURL(url);
+                    c.toBlob((blob) => download(fileBase() + ".png", blob), "image/png");
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    alert("PNG 변환에 실패했습니다. SVG 내보내기를 사용해 주세요.");
+                };
+                img.src = url;
+            }
+
+            function sanitize(n, seen) {
+                if (!n || typeof n !== "object") throw new Error("노드 형식이 올바르지 않습니다");
+                const id = typeof n.id === "string" && n.id && !seen.has(n.id) ? n.id : uid();
+                seen.add(id);
+                const out = { id, text: String(n.text ?? n.title ?? n.topic ?? ""), children: [] };
+                if (typeof n.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(n.color)) out.color = n.color;
+                if (n.collapsed) out.collapsed = true;
+                const kids = Array.isArray(n.children) ? n.children : [];
+                out.children = kids.map((c) => sanitize(c, seen));
+                return out;
+            }
+            function parseOutline(txt) {
+                // Markdown 제목(#)과 들여쓰기 목록(-, *, +, 1.)을 트리로 변환
+                const stack = [];
+                const tops = [];
+                let headingKey = 0;
+                for (const raw of txt.split(/\r?\n/)) {
+                    if (!raw.trim()) continue;
+                    const line = raw.replace(/\t/g, "    ");
+                    const h = line.match(/^\s*(#{1,6})\s+(.*)$/);
+                    let key, text;
+                    if (h) {
+                        key = h[1].length * 1000;
+                        headingKey = key;
+                        text = h[2];
+                    } else {
+                        const indent = line.match(/^\s*/)[0].length;
+                        key = headingKey + 1 + indent;
+                        text = line.trim().replace(/^([-*+]|\d+[.)])\s+(\[[ xX]\]\s+)?/, "");
+                    }
+                    const node = { id: uid(), text: text.trim(), children: [] };
+                    while (stack.length && stack[stack.length - 1].key >= key) stack.pop();
+                    if (stack.length) stack[stack.length - 1].node.children.push(node);
+                    else tops.push(node);
+                    stack.push({ key, node });
+                }
+                if (!tops.length) throw new Error("내용이 비어 있습니다");
+                return tops.length === 1 ? tops[0] : { id: uid(), text: "가져온 맵", children: tops };
+            }
+            function importText(name, txt) {
+                let root;
+                if (/\.json$/i.test(name) || /^\s*[{[]/.test(txt)) {
+                    const data = JSON.parse(txt);
+                    root = sanitize(data.root || data, new Set());
+                } else {
+                    root = sanitize(parseOutline(txt), new Set());
+                }
+                if (store.maps[root.id]) root.id = uid();
+                root.children.forEach((c, i) => {
+                    if (!c.color) c.color = PALETTE[i % PALETTE.length];
+                });
+                openMap(root);
+            }
+            $("#fileInput").addEventListener("change", async (e) => {
+                const f = e.target.files[0];
+                e.target.value = "";
+                if (!f) return;
+                try {
+                    importText(f.name, await f.text());
+                } catch (err) {
+                    alert("파일을 열 수 없습니다: " + err.message);
+                }
+            });
+
+            // ---------- 도움말 ----------
+            function toggleHelp(force) {
+                const el = $("#help");
+                const show = force ?? el.style.display !== "block";
+                el.style.display = show ? "block" : "none";
+            }
+
+            // ---------- 툴바 ----------
+            const bar = $("#bar");
+            bar.addEventListener("mousedown", (e) => {
+                if (e.target.closest("button")) e.preventDefault(); // 버튼이 키보드 포커스를 가져가지 않게
+            });
+            const on = (id, fn) => $(id).addEventListener("click", fn);
+            on("#btnNew", () => {
+                openMap(newRoot());
+                startEdit(map.id);
+            });
+            on("#btnDel", () => {
+                if (!confirm(`"${map.text.split("\n")[0]}" 맵을 삭제할까요? 되돌릴 수 없습니다.`)) return;
+                delete store.maps[map.id];
+                const next = Object.values(store.maps).sort((a, b) => b.updated - a.updated)[0];
+                openMap(next ? next.data : newRoot());
+            });
+            on("#btnOpen", () => $("#fileInput").click());
+            on("#btnJson", exportJSON);
+            on("#btnMd", exportMarkdown);
+            on("#btnPng", exportPNG);
+            on("#btnSvg", exportSVG);
+            on("#btnUndo", undo);
+            on("#btnRedo", redo);
+            on("#btnChild", addChild);
+            on("#btnSib", addSibling);
+            on("#btnRemove", removeSelected);
+            on("#btnAutoColor", () => setColor(null));
+            const pop = $("#colorPop");
+            pop.addEventListener("mousedown", (e) => e.preventDefault());
+            on("#btnColor", (e) => {
+                const show = pop.style.display !== "flex";
+                pop.style.display = show ? "flex" : "none";
+                if (show) {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    pop.style.left = clamp(r.left, 8, window.innerWidth - pop.offsetWidth - 8) + "px";
+                }
+            });
+            document.addEventListener("pointerdown", (e) => {
+                if (!e.target.closest("#colorPop, #btnColor")) pop.style.display = "none";
+            });
+            on("#btnZoomIn", () => zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, 1.2));
+            on("#btnZoomOut", () => zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, 1 / 1.2));
+            on("#btnFit", fit);
+            on("#btnHelp", () => toggleHelp());
+            on("#helpClose", () => toggleHelp(false));
+            $("#mapSel").addEventListener("change", (e) => {
+                const m = store.maps[e.target.value];
+                e.target.blur();
+                if (m && m.data !== map) openMap(m.data);
+            });
+            $("#swatches").innerHTML = PALETTE.map((c) => `<button class="swatch" data-color="${c}" title="${c}" style="background:${c}"></button>`).join("");
+            $("#swatches").addEventListener("click", (e) => {
+                const b = e.target.closest("[data-color]");
+                if (b) setColor(b.dataset.color);
+            });
+
+            mq.addEventListener("change", render);
+            window.addEventListener("resize", () => editing && positionEditor());
+
+            // ---------- 시작 ----------
+            (function init() {
+                const ids = Object.keys(store.maps);
+                const id = store.maps[store.current] ? store.current : ids[0];
+                map = id ? store.maps[id].data : newRoot();
+                selectedId = map.id;
+                render();
+                fit();
+                persist();
+                if (!store.seenHelp) {
+                    toggleHelp(true);
+                    store.seenHelp = true;
+                    writeStore();
+                }
+            })();
+        </script>
+    </body>
+</html>
