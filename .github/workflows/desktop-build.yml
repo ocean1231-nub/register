@@ -1,0 +1,42 @@
+name: Desktop app build
+
+on:
+    push:
+        paths:
+            - "desktop/**"
+            - ".github/workflows/desktop-build.yml"
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    windows:
+        name: Windows installer
+        runs-on: windows-latest
+        defaults:
+            run:
+                working-directory: desktop
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+                  cache-dependency-path: desktop/package-lock.json
+
+            - name: Install
+              run: npm ci
+
+            - name: Test
+              run: npm test
+
+            - name: Build installer
+              run: npx electron-builder --win nsis --x64 --publish never
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: document-agent-windows
+                  path: desktop/dist/*.exe
+                  if-no-files-found: error
